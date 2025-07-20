@@ -1,4 +1,4 @@
-# Purpose: Statistical analysis of differences in truffle-like fungal richness between seasons and in correltion with changes in climate 
+# Purpose: Statistical analysis of differences in truffle-like fungal richness between seasons and in correlation with changes in climate 
 
 # Load packages 
 
@@ -274,7 +274,7 @@ alpha_diversity_summary <- alpha_diversity_summary %>%
 alpha_diversity$Genus_months <- "Across the year"
 alpha_diversity$Genus_years <- "Between years"
 
-# Set breaks to only label every second month, while plotting richness by day of scat collection
+# Set breaks to only label every second month, while plotting richness by d of scat collection
 
 days_in_months <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 month_middle_points <- cumsum(c(0, days_in_months[-length(days_in_months)])) + days_in_months / 2
