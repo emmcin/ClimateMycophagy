@@ -13,6 +13,7 @@ library(indicspecies)
 library(ggrepel)
 library(pscl)
 library(emmeans)
+library(MASS)
 
 # 1. Ordinations  ----
 
@@ -45,7 +46,7 @@ ord_truffle_ecm$Season <- factor(ord_truffle_ecm$Season,levels = c("Summer", "Au
 
 season_colors <- c("Summer"= "#EAA48F","Autumn" = "#D1B08F","Winter" = "#92c9c4","Spring" = "#95A58E") 
 
-ggplot(ord_truffle_ecm, aes(x = NMDS1, y = NMDS2, color = Season)) +
+ordplot <- ggplot(ord_truffle_ecm, aes(x = NMDS1, y = NMDS2, color = Season)) +
   geom_point(size = 3) +
   scale_colour_manual(values = season_colors)+
   theme_light() +
@@ -235,7 +236,7 @@ AIC(step.model)
 
 # Remove variables that are not significant 
 
-hurdle_hyst_1 <- hurdle(hyst_RelativeAbundance ~   three_mon_mint_av + wk_av_temp + mon_AHMI  , dist = "negbin", zero.dist = "binomial", data = hyst_abun, link = "logit", na.action = "na.fail")
+hurdle_hyst_1 <- hurdle(hyst_RelativeAbundance ~   three_mon_mint_av + wk_av_temp  , dist = "negbin", zero.dist = "binomial", data = hyst_abun, link = "logit", na.action = "na.fail")
 
 step.model <- stepAIC(hurdle_hyst_1, direction = "both", 
                       trace = FALSE)
@@ -328,7 +329,7 @@ ggplot(hyst_combined_zero, aes(x = xvar, y = yvar, color = variable)) +
 
 tax_table <- tax_table(ITSrel.count)
 Mesophellia_taxa <- taxa_names(tax_table[tax_table[, "Genus"] == "Mesophellia", ])
-data_subset <- prune_taxa(Mesophellia_taxa, ITSrel.count) 
+data <- prune_taxa(Mesophellia_taxa, ITSrel.count) 
 
 data = prune_taxa(taxa_sums(data) > 0, data) ## remove OTUs with zero count
 

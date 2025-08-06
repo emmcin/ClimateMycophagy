@@ -13,6 +13,7 @@ library(caret)
 library(MASS)
 library(MuMIn)
 library(car)
+library(emmeans)
 
 # 1. Filter for truffle-like ECM taxa ----
 
@@ -53,12 +54,14 @@ alpha_diversity <- cbind(diversity, meta)
 
 # 2. Richness between seasons ----
 
-# Anova to compare richness between seasons 
+# Negative binomial GLM 
+nb_model_season <- glm.nb(Observed ~ Season , data = alpha_diversity)
+summary(nb_model_season)
 
-anova_model <- aov(Observed ~ Season, data = alpha_diversity)
-summary(anova_model)
-tukey_results <- TukeyHSD(anova_model)
-tukey_results
+# Test differences with emmeans
+emm <- emmeans(nb_model_season, ~ Season)
+pairwise_results <- pairs(emm)
+plot(emm)
 
 
 # Plot seasonal differences
@@ -96,9 +99,7 @@ truffle_ecm_genus_relabun <- truffle_ecm %>%
   mutate(rel_abun = total_abun / sum(total_abun)) %>%
   ungroup()
 
-colour_theme <- c("#C2CFD0",
-                 , "#92c9c4", "#90D8D2", "#809B97", "#95A58E","#4a8780", "#93715c",  "#006973","#A67048","#c1ad9e","#D1B08F", "#B27440","#778773", "#4C2B16",
-                 "#CF866F", "#EAA48F", "#e3ad9a","#F8D8D2"
+colour_theme <- c("#C2CFD0", "#92c9c4", "#90D8D2", "#809B97", "#95A58E","#4a8780", "#93715c",  "#006973","#A67048","#c1ad9e","#D1B08F", "#B27440","#778773", "#4C2B16","#CF866F", "#EAA48F", "#e3ad9a","#F8D8D2"
 )
 
 genus_relabun$Season <- factor(genus_relabun$Season, levels = c("Summer","Autumn", "Winter", "Spring"))
