@@ -1,5 +1,5 @@
 # ClimateMycophagy
-This repository contains code to perform the bioinformatic pipeline and statistical analysis for the manuscript *Warming climate shapes the mutualistic interaction between truffle-like ectomycorrhizal (ECM) fungi and mycophagous mammals*.
+This repository contains code to perform the bioinformatic pipeline and statistical analysis for the manuscript *Climate variability shapes the mutualistic interaction between truffle-like ectomycorrhizal (ECM) fungi and mycophagous mammals*.
 
 ## Authors
 <b>Emily McIntyre<sup>1</sup>, Craig Nitschke<sup>1</sup>, Francisco Encinas-Viso<sup>2</sup>, Tony Mitchell<sup>3</sup>, Camille Truong<sup>4,5</sup></b>
