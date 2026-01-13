@@ -153,5 +153,3 @@ ITS.binary
 ITS.binary2
 guild_table
 
-sample_data(ITSrel.count)
-

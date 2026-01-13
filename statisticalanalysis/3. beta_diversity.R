@@ -22,7 +22,6 @@ data=prune_taxa(ecm.list, ITSrel.count2)
 
 hypo.list=row.names(guild_table)[which(guild_table$Fruitbody_type=="gasteroid-hypogeous")] # Filter for truffle-like genera
 data=prune_taxa(hypo.list, data)
-
 data = prune_taxa(taxa_sums(data) > 0, data) # Remove OTUs with zero count
 truffle_ecm <- prune_samples(sample_sums(data) > 0, data) # Remove samples with zero OTUs 
 
@@ -142,6 +141,9 @@ full_model <- capscale(bray_distance ~ Season + week_precip + three_month_precip
 # Select model
 model_select <- ordiR2step(null, scope = formula(full_model), R2scope = TRUE, pstep = 0.05)
 
+model_select <- capscale(bray_distance ~ Season + week_precip + wk_av_temp + twelve_mon_mint_av , data = sample_data, distance = "bray")
+
+
 formula(model_select)
 print(model_select)
 summary(model_select)
@@ -167,7 +169,11 @@ env_data <- data.frame(db_rda_env)
 season_colors <- c("Summer"= "#EAA48F","Autumn" = "#D1B08F","Winter" = "#92c9c4","Spring" = "#95A58E") 
 
 rownames(env_data)
-env_data$name <- c("Spring","Summer","Winter",  "Twelve Month MINT","Weekly AVT", "Weekly Precip")
+
+env_data$name <- c("Spring","Summer","Winter", "Weekly Precip","Weekly AVT", "Twelve Month MINT" )
+
+
+env_data$name <- c("Spring","Summer","Winter", "Weekly Precip" ,"Twelve Month Precip","Twelve Month MINT","Monthly Precip", "Annual FSDI")
 
 p <- ggplot(sites_data, aes(x = CAP1, y = CAP2, color = Season)) +
   geom_point(size = 3) 
@@ -180,9 +186,9 @@ hulls <- sites_data %>%
   do(find_hull(.))
 
 # Add polygons to the plot
-p <- p + 
-  geom_polygon(data = hulls, aes(x = CAP1, y = CAP2, fill = Season, group = Season), alpha = 0.02) 
-p +
+fig4 <- p + 
+  #geom_polygon(data = hulls, aes(x = CAP1, y = CAP2, fill = Season, group = Season), alpha = 0.02) 
+#p +
   scale_fill_manual(values = season_colors) + scale_color_manual(values = season_colors)+
   geom_segment(data = env_data, aes(x = 0, xend = CAP1, y = 0, yend = CAP2),
                arrow = arrow(length = unit(0.2, "cm")), color = "#000000", size = 0.8) +
@@ -192,7 +198,9 @@ p +
                   segment.linetype = "dashed", size = 4) + 
   theme_minimal() +
   theme(legend.position = "top") +
-  labs(title = "db-RDA of Truffle-like ECM at Bellbird", x = "CAP1", y = "CAP2") 
+  labs(title = NULL, x = "CAP1", y = "CAP2") 
+
+ggsave("Figure 4.svg", fig4, height = 4.4, width = 6.4, dpi = 600)
 
 
 # 5. Occurrence and relative abundance of truffle-like genera ----
@@ -203,6 +211,8 @@ p +
 tax_table <- tax_table(ITSrel.count)
 hysterangium_taxa <- taxa_names(tax_table[tax_table[, "Genus"] == "Hysterangium", ])
 data <- prune_taxa(hysterangium_taxa, ITSrel.count) #
+
+
 
 data = prune_taxa(taxa_sums(data) > 0, data) ## remove OTUs with zero count
 
@@ -234,6 +244,7 @@ step.model <- stepAIC(hurdle_hyst_full, direction = "both",
 summary(step.model)
 AIC(step.model)
 
+
 # Remove variables that are not significant 
 
 hurdle_hyst_1 <- hurdle(hyst_RelativeAbundance ~   three_mon_mint_av + wk_av_temp  , dist = "negbin", zero.dist = "binomial", data = hyst_abun, link = "logit", na.action = "na.fail")
@@ -247,6 +258,100 @@ summary(step.model)
 hurdle_hyst_null <- hurdle(hyst_RelativeAbundance ~   1   , dist = "negbin", zero.dist = "binomial", data = hyst_abun, link = "logit", na.action = "na.fail")
 AIC(hurdle_hyst_1,hurdle_hyst_null) 
 
+
+
+### for 1993-2003:
+
+#week_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_precip + mon_AHMI + fdsi_annual"
+
+
+hurdle_hyst_1 <- hurdle(hyst_RelativeAbundance ~   week_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_precip + mon_AHMI + fdsi_annual  , dist = "negbin", zero.dist = "binomial", data = hyst_abun, link = "logit", na.action = "na.fail")
+
+
+hurdle_hyst_1 <- hurdle(hyst_RelativeAbundance ~   three_mon_mint_av  + wk_av_temp  | mon_precip + mon_AHMI, dist = "negbin", zero.dist = "binomial", data = hyst_abun, link = "logit", na.action = "na.fail")
+summary(hurdle_hyst_1)
+
+
+hurdle_hyst_plotzero <- hurdle(hyst_RelativeAbundance ~       mon_precip + mon_AHMI, dist = "negbin", zero.dist = "binomial", data = hyst_abun, link = "logit", na.action = "na.fail")
+
+hyst_prob0_mon_precip <- emmip(hurdle_hyst_plotzero, ~ mon_precip,
+                               at = list(mon_precip = seq(min(hyst_abun$mon_precip), max(hyst_abun$mon_precip), length.out = 50),
+                                         mon_AHMI = mean(hyst_abun$mon_AHMI)
+                               ), 
+                               lin.pred = FALSE, mode ="zero", CIs = TRUE, plotit = FALSE) 
+
+
+hyst_prob0_mon_AHMI <- emmip(hurdle_hyst_plotzero, ~ mon_AHMI,
+                                   at = list(mon_AHMI = seq(min(hyst_abun$mon_AHMI), max(hyst_abun$mon_AHMI), length.out = 50),
+                                             mon_precip = mean(hyst_abun$mon_precip)
+                                   ), 
+                                   lin.pred = FALSE, mode ="zero", CIs = TRUE, plotit = FALSE) 
+
+hyst_abun_quarterly_mint <- emmip(hurdle_hyst_1, ~ three_mon_mint_av,
+                                  at = list(three_mon_mint_av = seq(min(hyst_abun$three_mon_mint_av), max(hyst_abun$three_mon_mint_av), length.out = 50),
+                                            wk_av_temp = mean(hyst_abun$wk_av_temp)
+                                  ), 
+                                  lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
+
+hyst_abun_wk_av_temp <-emmip(hurdle_hyst_1, ~ wk_av_temp,
+                             at = list(wk_av_temp = seq(min(hyst_abun$wk_av_temp), max(hyst_abun$wk_av_temp), length.out = 50),
+                                       three_mon_mint_av = mean(hyst_abun$three_mon_mint_av)
+                             ), 
+                             lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
+
+
+var1_long <- hyst_abun_quarterly_mint %>% 
+  mutate(variable = "three_mon_mint_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = three_mon_mint_av)
+
+var2_long <- hyst_abun_wk_av_temp %>% 
+  mutate(variable = "wk_av_temp") %>% 
+  dplyr::select(variable, yvar, SE, xvar = wk_av_temp)
+
+hyst_combined_count <- bind_rows(var1_long, var2_long)
+
+
+
+# Plot relative abundance 
+ggplot(hyst_combined_count, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Predicted abundance", title = "Hysterangium") +
+  theme_minimal() +
+  scale_color_manual(values = c("#799998", "#E7B945")) +  # Adjust colors
+  scale_fill_manual(values = c("#799998", "#E7B945")) + theme_minimal() #+
+#theme(legend.position = "none")  
+
+
+var1_long <- hyst_prob0_mon_AHMI %>% 
+  mutate(variable = "mon_AHMI") %>% 
+  dplyr::select(variable, yvar, SE, xvar = mon_AHMI)
+
+var2_long <- hyst_prob0_mon_precip  %>% 
+  mutate(variable = "mon_precip") %>% 
+  dplyr::select(variable, yvar, SE, xvar = mon_precip)
+
+hyst_combined_zero <- bind_rows(var1_long, var2_long)
+str(hyst_combined_zero$occurenceprob)
+
+# Plot occurrence
+ggplot(hyst_combined_zero, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Probability of Hysterangium Presence", title = "Hysterangium") +
+  theme_minimal() +
+  scale_color_manual(values = c("#799998", "#E7B945")) +  # Adjust colors
+  scale_fill_manual(values = c("#799998", "#E7B945")) + theme_minimal() #+
+#theme(legend.position = "none")  
+
+
+
+
+
+
+### For all data (1993-2016)
 
 # Plot the relationship with each variable for occurrence and relative abundance, holding the other variable at its mean
 
@@ -377,6 +482,90 @@ hurdle_meso_null <- hurdle(meso_RelativeAbundance ~   1   , dist = "negbin", zer
 AIC(hurdle_meso_1,hurdle_meso_null) 
 
 
+
+
+hurdle_meso_full <- hurdle(meso_RelativeAbundance ~ three_mon_mint_av + twelve_mon_precip + wk_av_temp + mon_precip + mon_AHMI + fdsi_annual, dist = "negbin", zero.dist = "binomial", data = meso_abun, link = "logit", na.action = "na.fail")
+
+hurdle_meso_full <- hurdle(meso_RelativeAbundance ~ three_mon_mint_av  + wk_av_temp |wk_av_temp , dist = "negbin", zero.dist = "binomial", data = meso_abun, link = "logit", na.action = "na.fail")
+
+step.model <- stepAIC(hurdle_meso_full, direction = "both", 
+                      trace = FALSE)
+summary(hurdle_meso_full)
+AIC(hurdle_meso_null,hurdle_meso_full)
+hurdle_meso_null <- hurdle(meso_RelativeAbundance ~   1   , dist = "negbin", zero.dist = "binomial", data = meso_abun, link = "logit", na.action = "na.fail")
+
+
+hurdle_meso_plotzero <- hurdle(meso_RelativeAbundance ~       wk_av_temp + mon_AHMI, dist = "negbin", zero.dist = "binomial", data = meso_abun, link = "logit", na.action = "na.fail")
+
+meso_prob0_wk_av_temp <- emmip(hurdle_meso_plotzero, ~ wk_av_temp,
+                               at = list(wk_av_temp = seq(min(meso_abun$wk_av_temp), max(meso_abun$wk_av_temp), length.out = 50)
+                               ), 
+                               lin.pred = FALSE, mode ="zero", CIs = TRUE, plotit = FALSE) 
+
+
+meso_abun_wk_av_temp <- emmip(hurdle_meso_full, ~ wk_av_temp,
+                              at = list(wk_av_temp = seq(min(meso_abun$wk_av_temp), max(meso_abun$wk_av_temp), length.out = 50),
+                                        three_mon_mint_av = mean(meso_abun$three_mon_mint_av)                                  ), 
+                              lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
+
+
+meso_abun_three_mon_mint_av <- emmip(hurdle_meso_full, ~ three_mon_mint_av,
+                              at = list(three_mon_mint_av = seq(min(meso_abun$three_mon_mint_av), max(meso_abun$three_mon_mint_av), length.out = 50),
+                                        three_mon_mint_av = mean(meso_abun$three_mon_mint_av)                                  ), 
+                              lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
+
+
+var1_long <- meso_abun_wk_maxt_av %>% 
+  mutate(variable = "wk_maxt_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = wk_maxt_av)
+
+var2_long <- meso_abun_three_mon_mint_av %>% 
+  mutate(variable = "three_mon_mint_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = three_mon_mint_av)
+
+meso_abun_combined <- bind_rows(var1_long,var2_long)
+
+
+# Plot relative abundance 
+ggplot(meso_abun_combined, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Predicted abundance", title = "Mesophellia") +
+  theme_minimal() +
+  scale_color_manual(values = c( "blue","#E7B945")) +  # Adjust colors
+  scale_fill_manual(values = c("blue","#E7B945"))# + theme_minimal() +
+# theme(legend.position = "none")  
+
+
+var2_long <- meso_prob0_wk_av_temp  %>% 
+  mutate(variable = "wk_av_temp") %>% 
+  dplyr::select(variable, yvar, SE, xvar = wk_av_temp)
+
+meso_combined_zero <- var2_long
+
+
+# Plot occurrence
+ggplot(meso_combined_zero, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Probability of Mesophellia Presence", title = "Mesophellia") +
+  theme_minimal() +
+  scale_color_manual(values = c("#E7B945")) +  # Adjust colors
+  scale_fill_manual(values = c( "#E7B945")) + theme_minimal() +
+  theme(legend.position = "none")  
+
+
+
+
+
+
+
+
+
+
+
 # Plot the relationship with each variable for occurrence and relative abundance
 
 meso_prob0_wk_maxt_av <- emmip(hurdle_meso_1, ~ wk_maxt_av,
@@ -390,15 +579,15 @@ meso_abun_wk_maxt_av <- emmip(hurdle_meso_1, ~ wk_maxt_av,
                                   lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
 
 
-var1_long <- meso_abun_wk_av_temp %>% 
-  mutate(variable = "wk_av_temp") %>% 
-  dplyr::select(variable, yvar, SE, xvar = wk_av_temp)
+var1_long <- meso_abun_wk_maxt_av %>% 
+  mutate(variable = "wk_maxt_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = wk_maxt_av)
 
 meso_var1_long <- var1_long
 
 
 # Plot relative abundance 
-ggplot(meso_combined_count, aes(x = xvar, y = yvar, color = variable)) +
+ggplot(meso_var1_long, aes(x = xvar, y = yvar, color = variable)) +
   geom_line(size = 0.7) + 
   geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
               alpha = 0.3, show.legend = FALSE) +
@@ -409,9 +598,9 @@ ggplot(meso_combined_count, aes(x = xvar, y = yvar, color = variable)) +
   theme(legend.position = "none")  
 
 
-var2_long <- meso_prob0_wk_av_temp  %>% 
-  mutate(variable = "wk_av_temp") %>% 
-  dplyr::select(variable, yvar, SE, xvar = wk_av_temp)
+var2_long <- meso_prob0_wk_maxt_av  %>% 
+  mutate(variable = "wk_maxt_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = wk_maxt_av)
 
 meso_combined_zero <- var2_long
 
@@ -468,12 +657,13 @@ thax_abun[, 10:29] <- scale(thax_abun[, 10:29])
 
 hurdle_thax_full <- hurdle(thax_RelativeAbundance ~  week_precip + three_month_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_AHMI + wk_maxt_av + fdsi_annual, dist = "negbin", zero.dist = "binomial", data = thax_abun, link = "logit", na.action = "na.fail")
 
+
 step.model <- stepAIC(hurdle_thax_full, direction = "both", 
                       trace = FALSE)
 summary(step.model)
 AIC(step.model)
 
-# Remove variables that are not significant, and then stepwise remove vars that contribute the least to the model
+# Remove variables that are not significant and then stepwise remove vars that contribute the least to the model
 
 hurdle_thax_1 <- hurdle(thax_RelativeAbundance ~   three_mon_mint_av      | three_mon_mint_av+ twelve_mon_mint_av  , dist = "negbin", zero.dist = "binomial", data = thax_abun, link = "logit", na.action = "na.fail")
 
@@ -486,6 +676,104 @@ AIC(hurdle_thax_1)
 
 hurdle_thax_null <- hurdle(thax_RelativeAbundance ~   1   , dist = "negbin", zero.dist = "binomial", data = thax_abun, link = "logit", na.action = "na.fail")
 AIC(hurdle_thax_1,hurdle_thax_null) 
+
+### for 1993-2003:
+
+#week_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_precip + mon_AHMI + fdsi_annual"
+
+
+
+hurdle_thax_full <- hurdle(thax_RelativeAbundance ~  week_precip    + mon_precip |three_mon_mint_av + twelve_mon_mint_av  , dist = "negbin", zero.dist = "binomial", data = thax_abun, link = "logit", na.action = "na.fail")
+
+
+step.model <- stepAIC(hurdle_thax_full, direction = "both", 
+                      trace = FALSE)
+summary(step.model)
+AIC(step.model)
+
+
+hurdle_thax_1 <- hurdle(thax_RelativeAbundance ~   week_precip    + mon_precip |three_mon_mint_av + twelve_mon_mint_av  , dist = "negbin", zero.dist = "binomial", data = thax_abun, link = "logit", na.action = "na.fail")
+summary(hurdle_thax_1)
+hurdle_thax_null <- hurdle(thax_RelativeAbundance ~   1   , dist = "negbin", zero.dist = "binomial", data = thax_abun, link = "logit", na.action = "na.fail")
+AIC(hurdle_thax_1,hurdle_thax_null) 
+
+
+
+
+# Plot the relationship with each variable for occurrence and relative abundance, holding the other variable at its mean
+
+hurdle_thax_plotzero <- hurdle(thax_RelativeAbundance ~       three_mon_mint_av + twelve_mon_mint_av, dist = "negbin", zero.dist = "binomial", data = thax_abun, link = "logit", na.action = "na.fail")
+
+
+thax_prob0_three_mon_mint_av <- emmip(hurdle_thax_plotzero, ~ three_mon_mint_av,
+                                      at = list(three_mon_mint_av = seq(min(thax_abun$three_mon_mint_av), max(thax_abun$three_mon_mint_av), length.out = 50)),        twelve_mon_mint_av = mean(thax_abun$twelve_mon_mint_av),               lin.pred = FALSE, mode ="zero", CIs = TRUE, plotit = FALSE) 
+
+
+thax_prob0_twelve_mon_mint_av <- emmip(hurdle_thax_plotzero, ~ twelve_mon_mint_av,
+                                       at = list(twelve_mon_mint_av = seq(min(thax_abun$twelve_mon_mint_av), max(thax_abun$twelve_mon_mint_av), length.out = 50 )), three_mon_mint_av = mean(thax_abun$three_mon_mint_av),
+                                       lin.pred = FALSE, mode ="zero", CIs = TRUE, plotit = FALSE) 
+
+
+thax_abun_week_precip <- emmip(hurdle_thax_1, ~ week_precip,
+                                     at = list(week_precip = seq(min(thax_abun$week_precip), max(thax_abun$week_precip), length.out = 50) , mon_precip = mean(thax_abun$mon_precip)),
+                                     lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
+
+
+thax_abun_mon_precip <- emmip(hurdle_thax_1, ~ mon_precip,
+                               at = list(mon_precip = seq(min(thax_abun$mon_precip), max(thax_abun$mon_precip), length.out = 50) , week_precip = mean(thax_abun$week_precip)),
+                               lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
+
+
+
+var1_long <- thax_abun_week_precip %>% 
+  mutate(variable = "week_precip") %>% 
+  dplyr::select(variable, yvar, SE, xvar = week_precip)
+
+var2_long <- thax_abun_mon_precip %>% 
+  mutate(variable = "mon_precip") %>% 
+  dplyr::select(variable, yvar, SE, xvar = mon_precip)
+
+thax_combined_count <- bind_rows(var1_long, var2_long)
+
+# Plot relative abundance 
+
+ggplot(thax_combined_count, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Predicted relative abundance", title = "Thaxterogaster") +
+  theme_minimal() +
+  scale_color_manual(values = c("#799998","blue")) +  # Adjust colors
+  scale_fill_manual(values = c("#799998","blue")) + theme_minimal() +
+  theme(legend.position = "none")  
+
+
+
+# Plot occurrence
+
+var1_long <- thax_prob0_three_mon_mint_av %>% 
+  mutate(variable = "three_mon_mint_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = three_mon_mint_av)
+
+var2_long <- thax_prob0_twelve_mon_mint_av  %>% 
+  mutate(variable = "twelve_mon_mint_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = twelve_mon_mint_av)
+
+thax_combined_zero <- bind_rows(var1_long, var2_long)
+
+ggplot(thax_combined_zero, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Probability of Thaxterogaster Presence", title = "Thaxterogaster") +
+  theme_minimal() +
+  scale_color_manual(values = c("#799998", "#92c9c4")) +  # Adjust colors
+  scale_fill_manual(values = c("#799998", "#92c9c4")) + theme_minimal() +
+  theme(legend.position = "none")
+
+
+
+### For all data (1993-2016):
 
 
 # Plot the relationship with each variable for occurrence and relative abundance, holding the other variable at its mean
@@ -553,7 +841,8 @@ ggplot(thax_combined_zero, aes(x = xvar, y = yvar, color = variable)) +
 
 tax_table <- tax_table(ITSrel.count)
 Arcangeliella_taxa <- taxa_names(tax_table[tax_table[, "Genus"] == "Arcangeliella", ])
-data <- prune_taxa(Arcangeliella_taxa, ITSrel.count) 
+data <- prune_taxa(Arcangeliella_taxa, ITSrel.count)
+
 data = prune_taxa(taxa_sums(data) > 0, data) ## remove OTUs with zero count
 
 otu_table_df <- as.data.frame(t(otu_table(data)))
@@ -606,6 +895,107 @@ AIC(hurdle_arc_1,hurdle_arc_null)
 
 # Create a model with just quarterly min temperature in order to plot the zero component
 hurdle_arc_plotzero <- hurdle(arc_RelativeAbundance ~       three_mon_mint_av, dist = "negbin", zero.dist = "binomial", data = arc_abun, link = "logit", na.action = "na.fail")
+
+
+
+### for 1993-2003:
+
+#week_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_precip + mon_AHMI + fdsi_annual"
+
+
+
+hurdle_arc_full <- hurdle(arc_RelativeAbundance ~  three_mon_mint_av  + fdsi_annual |three_mon_mint_av  , dist = "negbin", zero.dist = "binomial", data = arc_abun, link = "logit", na.action = "na.fail")
+
+step.model <- stepAIC(hurdle_arc_full, direction = "both", 
+                      trace = FALSE)
+summary(step.model)
+AIC(step.model)
+
+
+
+hurdle_arc_null <- hurdle(arc_RelativeAbundance ~   1   , dist = "negbin", zero.dist = "binomial", data = arc_abun, link = "logit", na.action = "na.fail")
+AIC(hurdle_arc_1,hurdle_arc_null) 
+
+
+
+
+
+hurdle_arc_1 <- hurdle(arc_RelativeAbundance ~   three_mon_mint_av  + fdsi_annual | three_mon_mint_av , dist = "negbin", zero.dist = "binomial", data = arc_abun, link = "logit", na.action = "na.fail")
+
+
+summary(hurdle_arc_1)
+hurdle_arc_plotzero <- hurdle(arc_RelativeAbundance ~       three_mon_mint_av, dist = "negbin", zero.dist = "binomial", data = arc_abun, link = "logit", na.action = "na.fail")
+
+
+
+arc_prob0_three_mon_mint_av <- emmip(hurdle_arc_plotzero, ~ three_mon_mint_av,
+                                     at = list(three_mon_mint_av = seq(min(arc_abun$three_mon_mint_av), max(arc_abun$three_mon_mint_av), length.out = 50)
+                                     ), 
+                                     lin.pred = FALSE, mode ="zero", CIs = TRUE, plotit = FALSE) 
+
+
+
+arc_abun_quarterly_mint <- emmip(hurdle_arc_1, ~ three_mon_mint_av,
+                                 at = list(three_mon_mint_av = seq(min(arc_abun$three_mon_mint_av), max(arc_abun$three_mon_mint_av), length.out = 50),
+                                           fdsi_annual = mean(arc_abun$fdsi_annual)
+                                 ), 
+                                 lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
+
+arc_abun_fdsi_annual <-emmip(hurdle_arc_1, ~ fdsi_annual,
+                             at = list(fdsi_annual = seq(min(arc_abun$fdsi_annual), max(arc_abun$fdsi_annual), length.out = 50),
+                                       three_mon_mint_av = mean(arc_abun$three_mon_mint_av)
+                             ), 
+                             lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
+
+
+var1_long <- arc_abun_quarterly_mint %>% 
+  mutate(variable = "three_mon_mint_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = three_mon_mint_av)
+
+var2_long <- arc_abun_fdsi_annual %>% 
+  mutate(variable = "fdsi_annual") %>% 
+  dplyr::select(variable, yvar, SE, xvar = fdsi_annual)
+
+arc_combined_count <- bind_rows(var1_long, var2_long)
+
+
+# Plot relative abundance 
+ggplot(arc_combined_count, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Predicted abundance", title = "Arcangeliella") +
+  theme_minimal() +
+  scale_color_manual(values = c("#799998", "#E7B945")) +  # Adjust colors
+  scale_fill_manual(values = c("#799998", "#E7B945")) + theme_minimal() #+
+#theme(legend.position = "none")  
+
+
+var1_long <- arc_prob0_three_mon_mint_av %>% 
+  mutate(variable = "three_mon_mint_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = three_mon_mint_av)
+
+
+arc_combined_zero <- bind_rows(var1_long)
+
+
+# Plot occurrence
+ggplot(arc_combined_zero, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Probability of Arcangeliella Presence", title = "Arcangeliella") +
+  theme_minimal() +
+  scale_color_manual(values = c("#799998")) +  # Adjust colors
+  scale_fill_manual(values = c("#799998")) + theme_minimal()# +
+#theme(legend.position = "none")  
+
+### For all data (1993-2016):
+
+hurdle_arc_1 <- hurdle(arc_RelativeAbundance ~   three_mon_mint_av  + fdsi_annual | three_mon_mint_av + mon_AHMI , dist = "negbin", zero.dist = "binomial", data = arc_abun, link = "logit", na.action = "na.fail")
+
+hurdle_arc_plotzero <- hurdle(arc_RelativeAbundance ~       three_mon_mint_av+mon_AHMI, dist = "negbin", zero.dist = "binomial", data = arc_abun, link = "logit", na.action = "na.fail")
+
 
 arc_prob0_three_mon_mint_av <- emmip(hurdle_arc_plotzero, ~ three_mon_mint_av,
                                      at = list(three_mon_mint_av = seq(min(arc_abun$three_mon_mint_av), max(arc_abun$three_mon_mint_av), length.out = 50)
@@ -703,6 +1093,7 @@ austro_abun[, 10:29] <- scale(austro_abun[, 10:29])
 
 hurdle_austro_full <- hurdle(austro_RelativeAbundance ~  week_precip + three_month_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_AHMI + wk_maxt_av + fdsi_annual, dist = "negbin", zero.dist = "binomial", data = austro_abun, link = "logit", na.action = "na.fail")
 
+
 step.model <- stepAIC(hurdle_austro_full, direction = "both", 
                       trace = FALSE)
 summary(step.model)
@@ -729,6 +1120,104 @@ AIC(hurdle_austro_1,hurdle_austro_null)
 # Plot the relationship with each variable for occurrence and relative abundance, holding the other variable at its mean
 
 
+
+
+### for 1993-2003:
+
+#week_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_precip + mon_AHMI + fdsi_annual"
+
+
+
+
+hurdle_austro_full <- hurdle(austro_RelativeAbundance ~  week_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_precip + mon_AHMI + fdsi_annual, dist = "negbin", zero.dist = "binomial", data = austro_abun, link = "logit", na.action = "na.fail")
+
+
+hurdle_austro_full <- hurdle(austro_RelativeAbundance ~   fdsi_annual |twelve_mon_mint_av + fdsi_annual, dist = "negbin", zero.dist = "binomial", data = austro_abun, link = "logit", na.action = "na.fail")
+
+step.model <- stepAIC(hurdle_austro_full, direction = "both", 
+                      trace = FALSE)
+summary(hurdle_austro_1)
+AIC(step.model)
+
+
+hurdle_austro_1 <- hurdle(austro_RelativeAbundance ~   fdsi_annual |twelve_mon_mint_av + fdsi_annual, dist = "negbin", zero.dist = "binomial", data = austro_abun, link = "logit", na.action = "na.fail")
+AIC(hurdle_austro_1)
+
+
+hurdle_austro_null <- hurdle(austro_RelativeAbundance ~   1   , dist = "negbin", zero.dist = "binomial", data = austro_abun, link = "logit", na.action = "na.fail")
+AIC(hurdle_austro_1,hurdle_austro_null) 
+
+
+# Create a model with just zero model variables in order to plot the zero component
+hurdle_austro_plotzero <- hurdle(austro_RelativeAbundance ~       twelve_mon_mint_av + fdsi_annual, dist = "negbin", zero.dist = "binomial", data = austro_abun, link = "logit", na.action = "na.fail")
+
+
+austro_prob0_twelve_mon_mint_av <- emmip(hurdle_austro_plotzero, ~ twelve_mon_mint_av,
+                                         at = list(twelve_mon_mint_av = seq(min(austro_abun$twelve_mon_mint_av), max(austro_abun$twelve_mon_mint_av), length.out = 50),
+                                                   fdsi_annual = mean(austro_abun$fdsi_annual)
+                                         ), 
+                                         lin.pred = FALSE, mode ="zero", CIs = TRUE, plotit = FALSE) 
+
+
+austro_prob0_fdsi_annual <- emmip(hurdle_austro_plotzero, ~ fdsi_annual,
+                                  at = list(fdsi_annual = seq(min(austro_abun$fdsi_annual), max(austro_abun$fdsi_annual), length.out = 50),
+                                            twelve_mon_mint_av = mean(austro_abun$twelve_mon_mint_av)
+                                  ), 
+                                  lin.pred = FALSE, mode ="zero", CIs = TRUE, plotit = FALSE) 
+
+
+
+
+arc_abun_fdsi_annual <-emmip(hurdle_arc_1, ~ fdsi_annual,
+                             at = list(fdsi_annual = seq(min(arc_abun$fdsi_annual), max(arc_abun$fdsi_annual), length.out = 50)
+                             ), 
+                             lin.pred = FALSE, mode = "response", CIs = TRUE, plotit = FALSE) 
+
+var1_long <- arc_abun_fdsi_annual %>% 
+  mutate(variable = "fdsi_annual") %>% 
+  dplyr::select(variable, yvar, SE, xvar = fdsi_annual)
+
+
+austro_count <- var1_long
+
+
+# Plot relative abundance 
+ggplot(austro_count, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Predicted abundance", title = "Austrogautieria") +
+  theme_minimal() +
+  scale_color_manual(values = c("#799998", "#E7B945")) +  # Adjust colors
+  scale_fill_manual(values = c("#799998", "#E7B945")) + theme_minimal() #+
+#theme(legend.position = "none")  
+
+
+var1_long <- austro_prob0_fdsi_annual %>% 
+  mutate(variable = "fdsi_annual") %>% 
+  dplyr::select(variable, yvar, SE, xvar = fdsi_annual)
+
+var2_long <- austro_prob0_twelve_mon_mint_av  %>% 
+  mutate(variable = "twelve_mon_mint_av") %>% 
+  dplyr::select(variable, yvar, SE, xvar = twelve_mon_mint_av)
+
+austro_combined_zero <- bind_rows(var1_long, var2_long)
+str(austro_combined_zero$occurenceprob)
+
+# Plot occurrence
+ggplot(austro_combined_zero, aes(x = xvar, y = yvar, color = variable)) +
+  geom_line(size = 0.7) + 
+  geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
+              alpha = 0.3, show.legend = FALSE) +
+  labs(x = "Scaled climate variable", y = "Probability of Austrogautieria Presence", title = "Austrogautieria") +
+  theme_minimal() +
+  scale_color_manual(values = c("#799998", "#E7B945")) +  # Adjust colors
+  scale_fill_manual(values = c("#799998", "#E7B945")) + theme_minimal() #+
+#theme(legend.position = "none")  
+
+
+
+### For all data (1993-2016):
 
 # Create a model with just zero model variables in order to plot the zero component
 hurdle_austro_plotzero <- hurdle(austro_RelativeAbundance ~       twelve_mon_mint_av + fdsi_annual, dist = "negbin", zero.dist = "binomial", data = austro_abun, link = "logit", na.action = "na.fail")
@@ -763,7 +1252,7 @@ austro_count <- var1_long
 
 
 # Plot relative abundance 
-ggplot(austro_combined_count, aes(x = xvar, y = yvar, color = variable)) +
+ggplot(austro_count, aes(x = xvar, y = yvar, color = variable)) +
   geom_line(size = 0.7) + 
   geom_ribbon(aes(ymin = yvar - 2 * SE, ymax = yvar + 2 * SE, fill = variable), 
               alpha = 0.3, show.legend = FALSE) +
@@ -882,7 +1371,7 @@ austro <- ggplot(austro_count, aes(x = xvar, y = yvar, color = variable)) +
   scale_color_manual(values = c("#E0D1C3")) +  # Adjust colors
   scale_fill_manual(values = c("#E0D1C3")) + theme_minimal() +
   theme(legend.position = "none")  +
-  ylim(0, 1000)+   facet_wrap(~Genus, scales = "free_y")
+  ylim(0, 800)+   facet_wrap(~Genus, scales = "free_y")
 
 
 unique(austro_count$variable)
@@ -983,7 +1472,6 @@ hyst <-ggplot(hyst_combined_zero, aes(x = xvar, y = yvar, color = variable)) +
   theme(legend.position = "none") +  theme + facet_wrap(~Genus, scales = "free_y") + ylim(-1.2,1.5)
 
 
-
 austro <- 
   ggplot(austro_combined_zero, aes(x = xvar, y = yvar, color = variable)) +
   geom_line(size = 0.7) + 
@@ -996,10 +1484,6 @@ austro <-
   scale_color_manual(values = c( "#CF866F","#92c9c4")) +  # Adjust colors
   scale_fill_manual(values = c( "#CF866F","#92c9c4"))+
   theme(legend.position = "none") +  theme + facet_wrap(~Genus, scales = "free_y") + ylim(-1.2,1.5)
-
-
-
-
 
 
 

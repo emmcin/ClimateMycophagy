@@ -15,6 +15,9 @@ library(MuMIn)
 library(car)
 library(emmeans)
 
+
+
+
 # 1. Filter for truffle-like ECM taxa ----
 
 ecm.list=row.names(guild_table)[which(guild_table$primary_lifestyle=="ectomycorrhizal")] # Filter for ECM taxa
@@ -23,9 +26,12 @@ data=prune_taxa(ecm.list, ITSrel.count)
 hypo.list=row.names(guild_table)[which(guild_table$Fruitbody_type=="gasteroid-hypogeous")] # Filter for truffle-like genera
 data=prune_taxa(hypo.list, data)
 
+
 data = prune_taxa(taxa_sums(data) > 0, data) # Remove OTUs with zero count
 truffle_ecm <- prune_samples(sample_sums(data) > 0, data) # Remove samples with zero OTUs 
 
+
+tax <- as.data.frame(tax_table(truffle_ecm))
 
 otu_table_df <- as.data.frame(otu_table(truffle_ecm))
 otu_table_df <- t(otu_table_df)
@@ -52,6 +58,8 @@ meta <- cbind(meta, filtered_reads)
 diversity <-estimate_richness(truffle_ecm, measures=c("Observed", "Chao1", "Shannon", "Simpson"))
 alpha_diversity <- cbind(diversity, meta)
 
+
+sort(unique(alpha_diversity$Year))
 # 2. Richness between seasons ----
 
 # Negative binomial GLM 
@@ -84,7 +92,7 @@ richness_plot <-
   theme(
     axis.title.y = element_text(size = 13),
     axis.title.x = element_text(size = 13),
-    text = element_text(size = 15), legend.position = "none") + theme_light()+ coord_cartesian(ylim = c(0, 16))
+    text = element_text(size = 15), legend.position = "none") + theme_light()+ coord_cartesian(ylim = c(0, 15))
 
 richness_plot
 
@@ -102,7 +110,7 @@ truffle_ecm_genus_relabun <- truffle_ecm %>%
 colour_theme <- c("#C2CFD0", "#92c9c4", "#90D8D2", "#809B97", "#95A58E","#4a8780", "#93715c",  "#006973","#A67048","#c1ad9e","#D1B08F", "#B27440","#778773", "#4C2B16","#CF866F", "#EAA48F", "#e3ad9a","#F8D8D2"
 )
 
-genus_relabun$Season <- factor(genus_relabun$Season, levels = c("Summer","Autumn", "Winter", "Spring"))
+truffle_ecm_genus_relabun$Season <- factor(truffle_ecm_genus_relabun$Season, levels = c("Summer","Autumn", "Winter", "Spring"))
 
 relabun_plot <- ggplot(truffle_ecm_genus_relabun, aes(x = Season, y = rel_abun, fill = Genus)) +
   geom_bar(stat = "identity", width = 0.8) +
@@ -133,6 +141,8 @@ combined_plot <- richness_plot / relabun_plot +
   plot_annotation(tag_levels = 'a')
 
 combined_plot
+ggsave("Figure 2.svg", combined_plot, height = 6.4, width = 5.4, dpi = 600)
+
 
 
 
@@ -140,7 +150,10 @@ combined_plot
 
 ## 3.1 Identify highly correlated variables ----
 
-clim_vars <- alpha_diversity[, 13:33] # Select climate variables
+alpha_diversity <- alpha_diversity %>% mutate_at(vars(14:34), as.numeric)
+
+
+clim_vars <- alpha_diversity[, 14:34] # Select climate variables
 
 cor_mat <- cor(clim_vars, use = "pairwise.complete.obs") # create the correlation matrix
 high_cor <- findCorrelation(cor_mat, cutoff = 0.70, verbose = TRUE, names = TRUE) # Find high correlated pairs (correlation > 0.7)
@@ -150,13 +163,13 @@ non_cor_vars <- setdiff(names(clim_vars), high_cor) # List the climate variables
 
 # Scale climate variables
 
-alpha_diversity <- alpha_diversity %>% mutate_at(vars(13:33), as.numeric)
-alpha_diversity[, c(13:33)] <- scale(alpha_diversity[, c(13:33)])
+alpha_diversity_scale <- alpha_diversity
+alpha_diversity_scale[, c(14:34)] <- scale(alpha_diversity_scale[, c(14:34)])
 
 # Use dredge to identify non-correlated climate variables that best predict observed richness of truffle-like ECM, using negative binomial regression
 
 
-model <-glm.nb(Observed ~ week_precip + three_month_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_AHMI + fdsi_annual, data = alpha_diversity, na.action = "na.fail")
+model <-glm.nb(Observed ~ week_precip + three_month_precip + three_mon_mint_av + twelve_mon_precip + twelve_mon_mint_av + wk_av_temp + mon_AHMI + fdsi_annual, data = alpha_diversity_scale, na.action = "na.fail")
 
 
 glm_nb <-dredge(model, beta= "sd", evaluate = TRUE, rank = "AIC",
@@ -166,17 +179,17 @@ glm_nb <-dredge(model, beta= "sd", evaluate = TRUE, rank = "AIC",
 View(glm_nb)
 
 # Best model:
-nb_model <- glm.nb(Observed ~  three_mon_mint_av + twelve_mon_mint_av, data = alpha_diversity)
+nb_model <- glm.nb(Observed ~  three_mon_mint_av + twelve_mon_mint_av, data = alpha_diversity_scale)
 summary(nb_model)
 
 # Compare to null model
-nb_model_null<- glm.nb(Observed ~  1 , data = alpha_diversity)
+nb_model_null<- glm.nb(Observed ~  1 , data = alpha_diversity_scale)
 summary(nb_model_null)
 AIC(nb_model,nb_model_null)
 anova(nb_model,nb_model_null) # Selected model is sigificantly better than the null model
 
 # Check for interaction
-nb_modelInt <- glm.nb(Observed ~  three_mon_mint_av * twelve_mon_mint_av, data = alpha_diversity)
+nb_modelInt <- glm.nb(Observed ~  three_mon_mint_av * twelve_mon_mint_av, data = alpha_diversity_scale)
 summary(nb_modelInt)
 AIC(nb_model,nb_modelInt)
 anova(nb_model,nb_modelInt) # Model with interaction terms provides a significantly better fit
@@ -191,8 +204,8 @@ plot(nb_modelInt)
 
 # For Quarterly Minimum Temperature: 
 newdat_three_mon_mint_av <- data.frame(
-  three_mon_mint_av = rep(seq(from = min(alpha_diversity$three_mon_mint_av), to = max(  alpha_diversity$three_mon_mint_av), length.out = 100), 1),
-  twelve_mon_mint_av = mean(alpha_diversity$twelve_mon_mint_av)
+  three_mon_mint_av = rep(seq(from = min(alpha_diversity_scale$three_mon_mint_av), to = max(  alpha_diversity_scale$three_mon_mint_av), length.out = 100), 1),
+  twelve_mon_mint_av = mean(alpha_diversity_scale$twelve_mon_mint_av)
 )
 
 newdat_three_mon_mint_av <- cbind(newdat_three_mon_mint_av, predict(nb_modelInt, newdat_three_mon_mint_av, type = "response"))
@@ -204,13 +217,13 @@ melt_newdat_three_mon_mint_av <- melt(newdat_three_mon_mint_av, id.vars = c("thr
 # Plot for Quarterly Minimum Temperature
 quarterly_temp_plot <- ggplot(melt_newdat_three_mon_mint_av, aes(x = three_mon_mint_av, y = Predicted, colour = variable)) +
   geom_line(color = "#92c9c4", size = 1) +
-  labs(title = "Effect of Quarterly Minimum Temperature on Observed Richness", x = "Mean quarterly minimum temperature (°C)", y = "Predicted Richness") + theme_light()
+  labs(title = "Effect of Quarterly Minimum Temperature on Observed Richness", x = "Mean MINT of previous quarter (°C)", y = "Predicted Richness") + theme_light()
 
 
 # For Annual Minimum Temperature: 
 newdat_twelve_mon_mint_av <- data.frame(
-  three_mon_mint_av = mean(  alpha_diversity$three_mon_mint_av),
-  twelve_mon_mint_av = rep(seq(from = min(  alpha_diversity$twelve_mon_mint_av), to = max(  alpha_diversity$twelve_mon_mint_av), length.out = 100), 1)
+  three_mon_mint_av = mean(  alpha_diversity_scale$three_mon_mint_av),
+  twelve_mon_mint_av = rep(seq(from = min(  alpha_diversity_scale$twelve_mon_mint_av), to = max(  alpha_diversity_scale$twelve_mon_mint_av), length.out = 100), 1)
 )
 
 newdat_twelve_mon_mint_av <- cbind(newdat_twelve_mon_mint_av, predict(nb_modelInt, newdat_twelve_mon_mint_av, type = "response"))
@@ -220,12 +233,12 @@ melt_newdat_twelve_mon_mint_av <- melt(newdat_twelve_mon_mint_av, id.vars = c("t
 # Plot for Annual Minimum Temperature
 annual_temp_plot <- ggplot(melt_newdat_twelve_mon_mint_av, aes(x = twelve_mon_mint_av, y = Predicted, colour = Variable)) +
   geom_line(color = "#92c9c4", size = 1) +
-  labs(title = "Effect of Annual Minimum Temperature on Observed Diversity", x = "Mean annual minimum temperature (°C)", y = "Predicted Richness") + theme_light()
+  labs(title = "Effect of Annual Minimum Temperature on Observed Diversity", x = "Mean MINT of previous 12 months (°C)", y = "Predicted Richness") + theme_light()
 
 
 # For the interaction term: 
-three_mon_mint_av_seq <- seq(from = min(  alpha_diversity$three_mon_mint_av), to = max(  alpha_diversity$three_mon_mint_av), length.out = 100)
-twelve_mon_mint_av_seq <- seq(from = min(  alpha_diversity$twelve_mon_mint_av), to = max(  alpha_diversity$twelve_mon_mint_av), length.out = 100)
+three_mon_mint_av_seq <- seq(from = min(  alpha_diversity_scale$three_mon_mint_av), to = max(  alpha_diversity_scale$three_mon_mint_av), length.out = 100)
+twelve_mon_mint_av_seq <- seq(from = min(  alpha_diversity_scale$twelve_mon_mint_av), to = max(  alpha_diversity$twelve_mon_mint_av), length.out = 100)
 
 grid <- expand.grid(three_mon_mint_av = three_mon_mint_av_seq, twelve_mon_mint_av = twelve_mon_mint_av_seq)
 
@@ -236,8 +249,8 @@ grid$Predicted <- predict(nb_modelInt, newdata = grid, type = "response")
 interaction_plot <- ggplot(grid, aes(x = three_mon_mint_av, y = twelve_mon_mint_av, fill = Predicted)) +
   geom_tile() +
   labs(title = "Interaction Effect",
-       x = "Mean quarterly minimum temperature (°C)",
-       y = "Mean annual minimum temperature (°C)",
+       x = "Mean MINT of previous quarter (°C)",
+       y = "Mean MINT of previous 12 months (°C)",
        fill = "Predicted Richness") +
   scale_fill_gradient(low = "#EAA48F", high = "#92C9C4") + theme_light()
 
@@ -275,7 +288,7 @@ alpha_diversity_summary <- alpha_diversity_summary %>%
 alpha_diversity$Genus_months <- "Across the year"
 alpha_diversity$Genus_years <- "Between years"
 
-# Set breaks to only label every second month, while plotting richness by d of scat collection
+# Set breaks to only label every second month, while plotting richness by date of scat collection
 
 days_in_months <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
 month_middle_points <- cumsum(c(0, days_in_months[-length(days_in_months)])) + days_in_months / 2
@@ -289,7 +302,7 @@ monthly_richness <- ggplot(alpha_diversity, aes(x = as.numeric(julian))) +
   geom_smooth(aes(y = Observed), method = "loess", se = TRUE, color = "#C4694C", fill = "#C4694C", alpha = 0.2,size =1) +
   scale_y_continuous(
     name = "Truffle-like ECM Richness",
-    sec.axis = sec_axis(~., name = expression(paste("Quarterly Minimum Temperature (°C)")))
+    sec.axis = sec_axis(~., name = expression(paste("Mean MINT of past quarter (°C)")))
   ) +
   scale_x_continuous(
     name = NULL,
@@ -327,7 +340,7 @@ annual_richness <- ggplot(alpha_diversity, aes(x = as.numeric(Year))) +
                      labels = seq(1993, 2016, by = 3)) +
   scale_y_continuous(
     name = "Truffle-like ECM Richness",
-    sec.axis = sec_axis(~inv_sec_axis_trans(.), name = expression(paste("Annual Minimum Temperature (°C)")))
+    sec.axis = sec_axis(~inv_sec_axis_trans(.), name = expression(paste("Mean MINT of past 12 months (°C)")))
   ) +
   theme(
     axis.title.y = element_text(color = "#C4694C"),
@@ -352,5 +365,8 @@ annual_richness<- annual_richness + theme
 
 combined_plot <- (monthly_richness + annual_richness) + plot_annotation(tag_levels = "a")
 combined_plot
+
+
+ggsave("Figure 3.svg", combined_plot, height = 4.0, width = 8.4, dpi = 600)
 
 
