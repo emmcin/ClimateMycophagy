@@ -352,7 +352,7 @@ annual_richness <- ggplot(alpha_diversity, aes(x = as.numeric(Year))) +
     text = element_text(colour = "#C4694C", size = 14))+
   theme(plot.title = element_text(hjust = 0.5, size = 16)) +  theme_light()
 summary(alpha_diversity$three_mon_mint_av)
-
+ 
 
 theme <- theme(
   axis.title.y = element_text(color = "#C4694C", size = 12),

@@ -133,7 +133,7 @@ otu_table(ITSrel.count) = ceiling(otu_table(ITSrel.count, "matrix")) # Transform
 
 # Presence/absence dataset
 binary_table=decostand(otu_table(ITSrel),method="pa")
-ITS.binary = phyloseq(otu_table(binary_table, taxa_are_rows=TRUE), 
+ITS.binary = phyloseq(otu_table(binary_table, taxa_are_rows=TRUE),  
                       sample_data(ITSrel), 
                       tax_table(tax_table(ITSrel)))
 sample_sums(ITS.binary)

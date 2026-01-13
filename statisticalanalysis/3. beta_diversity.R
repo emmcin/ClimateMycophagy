@@ -1264,7 +1264,7 @@ ggplot(austro_count, aes(x = xvar, y = yvar, color = variable)) +
 
 
 var1_long <- austro_prob0_fdsi_annual %>% 
-  mutate(variable = "fdsi_annual") %>% 
+  mutate(variable = "fdsi_annual") %>%  
   dplyr::select(variable, yvar, SE, xvar = fdsi_annual)
 
 var2_long <- austro_prob0_twelve_mon_mint_av  %>% 
